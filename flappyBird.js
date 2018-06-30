@@ -1,144 +1,136 @@
 //@ts-check
-var cvs = document.getElementById("canvas");
-var ctx = cvs.getContext("2d");
 
-//load images
-var bird = new Image();
-var fg = new Image();
-var bg = new Image();
-var pipeNorth = new Image();
-var pipeSouth = new Image();
+class Game {
+  constructor(cvs) {
+    this.cvs = cvs;
+    this.ctx = cvs.getContext("2d");
+    this.pipeGap = 85;
+    this.gravity = 1.5;
+    this.loadResources();
+    this.initialize();
+  }
 
-bird.src = "images/bird.png";
-fg.src = "images/fg.png";
-bg.src = "images/bg.png";
-pipeNorth.src = "images/pipeNorth.png";
-pipeSouth.src = "images/pipeSouth.png";
+  loadResources() {
+    //load images
+    this.bird = new Image();
+    this.fg = new Image();
+    this.bg = new Image();
+    this.pipeNorth = new Image();
+    this.pipeSouth = new Image();
 
-//audio files;
-var fly = new Audio();
-var scor = new Audio();
-var hit = new Audio();
+    this.bird.src = "images/bird.png";
+    this.fg.src = "images/fg.png";
+    this.bg.src = "images/bg.png";
+    this.pipeNorth.src = "images/pipeNorth.png";
+    this.pipeSouth.src = "images/pipeSouth.png";
 
-fly.src = "sounds/fly.mp3";
-scor.src = "sounds/score.mp3";
-hit.src = "sounds/hit.mp3";
+    //audio files;
+    this.flySound = new Audio();
+    this.scoreSound = new Audio();
+    this.hitSound = new Audio();
 
-//constants
-const gap = 85;
-let pipeDistance;
+    this.flySound.src = "sounds/fly.mp3";
+    this.scoreSound.src = "sounds/score.mp3";
+    this.hitSound.src = "sounds/hit.mp3";
+  }
 
-const gravity = 1.5;
+  initialize() {
+    // initilaize values
+    this.bX = 10;
+    this.bY = 150;
+    this.score = 0;
+    this.pipes = [];
+    this.pipes[0] = {
+      x: this.cvs.width,
+      y: 0
+    };
+    this.end = false;
+    // ewvent handler that moves the bird
+    //on kedown
+    document.addEventListener("keydown", () => {
+      if (!this.end) {
+        this.bY -= 25;
+        this.flySound.play();
+      }
+    });
 
-//bird dposition
-var bX;
-var bY;
+    // add event handler to canvas to restart the game
+    this.cvs.addEventListener("click", () => {
+      if (this.end) {
+        this.initialize();
+        this.start();
+      }
+    });
+  }
 
-var score;
+  start() {
+    this.draw();
+    if (!this.end) this.frameID = requestAnimationFrame(this.start.bind(this));
+  }
 
-//on kedown
-document.addEventListener("keydown", moveUp);
+  draw() {
+    this.ctx.drawImage(this.bg, 0, 0);
 
-function moveUp() {
-  if (!end) {
-    bY -= 25;
-    fly.play();
+    this.pipes.forEach(pipe => {
+      this.pipeDistance = this.pipeGap + this.pipeNorth.height;
+      this.ctx.drawImage(this.pipeNorth, pipe.x, pipe.y);
+      this.ctx.drawImage(this.pipeSouth, pipe.x, pipe.y + this.pipeDistance);
+      pipe.x--;
+      if (pipe.x == 125) {
+        this.pipes.push({
+          x: this.cvs.width,
+          y:
+            Math.floor(Math.random() * this.pipeNorth.height) -
+            this.pipeNorth.height
+        });
+      }
+
+      //detect collision, check this logic
+      if (
+        (this.bX + this.bird.width >= pipe.x &&
+          this.bX <= pipe.x + this.pipeNorth.width &&
+          (this.bY <= pipe.y + this.pipeNorth.height ||
+            this.bY + this.bird.height >= pipe.y + this.pipeDistance)) ||
+        this.bY + this.bird.height >= this.cvs.height - this.fg.height
+      ) {
+        this.ctx.fillStyle = "red";
+        this.ctx.font = "24px Verdana";
+        this.ctx.fillText(`Game Over, Score: ${this.score}`, 10, 300);
+        this.hitSound.play();
+        this.stop();
+        // location.reload();
+      }
+
+      //score
+      if (pipe.x == 5) {
+        this.score++;
+        this.scoreSound.play();
+      }
+
+      //remove pipes which have gone off screen
+      this.pipes = this.pipes.filter(pipe => pipe.x != 0);
+    });
+
+    this.ctx.drawImage(this.fg, 0, this.cvs.height - this.fg.height);
+
+    this.ctx.drawImage(this.bird, this.bX, this.bY);
+
+    this.bY += this.gravity;
+
+    this.ctx.fillStyle = "#000";
+    this.ctx.font = "20px Verdana";
+    this.ctx.fillText(`Score: ${this.score}`, 10, this.cvs.height - 20);
+  }
+  stop() {
+    if (this.frameID) {
+      this.end = true;
+      cancelAnimationFrame(this.frameID);
+    }
   }
 }
 
-//pipe coordinates
-let pipes;
-
-function initialize() {
-  bX = 10;
-  bY = 150;
-  score = 0;
-  pipes = [];
-  pipes[0] = {
-    x: cvs.width,
-    y: 0
-  };
-}
-
-//game variables
-let frameID;
-let end;
-
-//draw
-function draw() {
-  ctx.drawImage(bg, 0, 0);
-
-  pipes.forEach(pipe => {
-    pipeDistance = gap + pipeNorth.height;
-    ctx.drawImage(pipeNorth, pipe.x, pipe.y);
-    ctx.drawImage(pipeSouth, pipe.x, pipe.y + pipeDistance);
-    pipe.x--;
-    if (pipe.x == 125) {
-      pipes.push({
-        x: cvs.width,
-        y: Math.floor(Math.random() * pipeNorth.height) - pipeNorth.height
-      });
-    }
-
-    //detect collision, check this logic
-    if (
-      (bX + bird.width >= pipe.x &&
-        bX <= pipe.x + pipeNorth.width &&
-        (bY <= pipe.y + pipeNorth.height ||
-          bY + bird.height >= pipe.y + pipeDistance)) ||
-      bY + bird.height >= cvs.height - fg.height
-    ) {
-      ctx.fillStyle = "red";
-      ctx.font = "24px Verdana";
-      ctx.fillText(`Game Over, Score: ${score}`, 10, 300);
-      hit.play();
-      stop();
-      // location.reload();
-    }
-
-    //score
-    if (pipe.x == 5) {
-      score++;
-      scor.play();
-    }
-
-    //remove pipes which have gone off screen
-    pipes = pipes.filter(pipe => pipe.x != 0);
-  });
-
-  ctx.drawImage(fg, 0, cvs.height - fg.height);
-
-  ctx.drawImage(bird, bX, bY);
-
-  bY += gravity;
-
-  ctx.fillStyle = "#000";
-  ctx.font = "20px Verdana";
-  ctx.fillText(`Score: ${score}`, 10, cvs.height - 20);
-  console.log("still drawing");
-}
-
-function start() {
-  end = false;
-  draw();
-  if (!end) frameID = requestAnimationFrame(start);
-}
-
-function stop() {
-  if (frameID) {
-    end = true;
-    cancelAnimationFrame(frameID);
-  }
-}
-
-cvs.addEventListener("click", () => {
-  if (end) {
-    console.log("restarting game");
-    initialize();
-    start();
-  }
-});
 window.onload = () => {
-  initialize();
-  start();
+  var cvs = document.getElementById("canvas");
+  let flapyBird = new Game(cvs);
+  flapyBird.start();
 };
