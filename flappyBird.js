@@ -18,37 +18,51 @@ pipeSouth.src = "images/pipeSouth.png";
 //audio files;
 var fly = new Audio();
 var scor = new Audio();
+var hit = new Audio();
 
 fly.src = "sounds/fly.mp3";
 scor.src = "sounds/score.mp3";
+hit.src = "sounds/hit.mp3";
 
 //constants
 const gap = 85;
 let pipeDistance;
-console.log(pipeDistance);
 
 const gravity = 1.5;
 
-//bir dposition
-var bX = 10;
-var bY = 150;
+//bird dposition
+var bX;
+var bY;
 
-var score = 0;
+var score;
 
-//on kedowm
+//on kedown
 document.addEventListener("keydown", moveUp);
 
 function moveUp() {
-  bY -= 25;
-  fly.play();
+  if (!end) {
+    bY -= 25;
+    fly.play();
+  }
 }
 
 //pipe coordinates
-let pipes = [];
-pipes[0] = {
-  x: cvs.width,
-  y: 0
-};
+let pipes;
+
+function initialize() {
+  bX = 10;
+  bY = 150;
+  score = 0;
+  pipes = [];
+  pipes[0] = {
+    x: cvs.width,
+    y: 0
+  };
+}
+
+//game variables
+let frameID;
+let end;
 
 //draw
 function draw() {
@@ -74,7 +88,12 @@ function draw() {
           bY + bird.height >= pipe.y + pipeDistance)) ||
       bY + bird.height >= cvs.height - fg.height
     ) {
-      location.reload();
+      ctx.fillStyle = "red";
+      ctx.font = "24px Verdana";
+      ctx.fillText(`Game Over, Score: ${score}`, 10, 300);
+      hit.play();
+      stop();
+      // location.reload();
     }
 
     //score
@@ -82,6 +101,9 @@ function draw() {
       score++;
       scor.play();
     }
+
+    //remove pipes which have gone off screen
+    pipes = pipes.filter(pipe => pipe.x != 0);
   });
 
   ctx.drawImage(fg, 0, cvs.height - fg.height);
@@ -93,7 +115,30 @@ function draw() {
   ctx.fillStyle = "#000";
   ctx.font = "20px Verdana";
   ctx.fillText(`Score: ${score}`, 10, cvs.height - 20);
-  requestAnimationFrame(draw);
+  console.log("still drawing");
 }
 
-window.onload = draw;
+function start() {
+  end = false;
+  draw();
+  if (!end) frameID = requestAnimationFrame(start);
+}
+
+function stop() {
+  if (frameID) {
+    end = true;
+    cancelAnimationFrame(frameID);
+  }
+}
+
+cvs.addEventListener("click", () => {
+  if (end) {
+    console.log("restarting game");
+    initialize();
+    start();
+  }
+});
+window.onload = () => {
+  initialize();
+  start();
+};
